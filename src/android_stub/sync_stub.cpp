@@ -1,5 +1,5 @@
 #include <sync/sync.h>
-
+#include <stdint.h>
 extern "C" {
 
 /* timeout in msecs */
