@@ -60,6 +60,9 @@ fd_derived_counters(const struct fd_dev_id *id, unsigned *count)
    case 7:
       *count = a7xx_num_derived_counters;
       return a7xx_derived_counters;
+       case 8:
+       *count = a7xx_num_derived_counters;
+      return a7xx_derived_counters;
    default:
       *count = 0;
       return NULL;
@@ -89,6 +92,9 @@ fd_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_der
 {
    switch (fd_dev_gen(id)) {
    case 7:
+      a7xx_generate_derived_counter_collection(id, collection);
+      break;
+   case 8:
       a7xx_generate_derived_counter_collection(id, collection);
       break;
    default:
