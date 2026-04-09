@@ -461,16 +461,12 @@ tu_tiling_config_update_pipes(struct tu_vsc_config *vsc,
 static void
 tu_tiling_config_update_binning(struct tu_vsc_config *vsc, const struct tu_device *device)
 {
-   if (vsc->binning_possible) {
-      vsc->binning = (vsc->tile_count.width * vsc->tile_count.height) > 2;
+      vsc->binning_useful = (vsc->tile_count.width * vsc->tile_count.height) > 2;
 
       if (TU_DEBUG(FORCEBIN))
-         vsc->binning = true;
+         vsc->binning_useful = true;
       if (TU_DEBUG(NOBIN))
-         vsc->binning = false;
-   } else {
-      vsc->binning = false;
-   }
+     vsc->binning_useful = false;
 }
 
 void
