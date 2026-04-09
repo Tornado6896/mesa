@@ -755,13 +755,4 @@ void tu_autotune_end_renderpass(struct tu_cmd_buffer *cmd,
       tu_cs_emit(cs, ZPASS_DONE);
    }
 }
-tu_autotune::get_supported_mod_flags(tu_device *device) const
-{
-   uint32_t supported_mod_flags = (uint32_t) mod_flag::BIG_GMEM | (uint32_t) mod_flag::TUNE_SMALL;
-   if (device->physical_device->info->props.max_draw_states > TU_DRAW_STATE_AT_WRITE_RP_HASH &&
-       device->physical_device->is_perf_cntr_selectable) {
-      supported_mod_flags |= (uint32_t) mod_flag::PREEMPT_OPTIMIZE;
-   }
-   return supported_mod_flags;
-
 TU_GENX(tu_autotune_end_renderpass);
