@@ -11,11 +11,7 @@
 
 #define REG6(_x) REG_A6XX_##_x
 #define REG7(_x) REG_A7XX_##_x
-#define REG8(_x) REG_A8XX_##_x
 
-
-#define FD8_COUNTER(_sel, _offset) COUNTER_BASE(_sel, _offset+0, _offset+1)
-#define FD8_COUNTABLE(_sel) COUNTABLE_BASE(#_sel, A7XX_##_sel, UINT64, AVERAGE)
 
 #define FD7_COUNTER(_sel, _offset) COUNTER_BASE(_sel, _offset+0, _offset+1)
 #define FD7_COUNTABLE(_sel) COUNTABLE_BASE(#_sel, A7XX_##_sel, UINT64, AVERAGE)
@@ -1266,38 +1262,7 @@ const struct fd_perfcntr_group a7xx_perfcntr_groups[] = {
       GROUP("BV_LRZ", bv_lrz_counters, lrz_countables),
       GROUP("BV_HLSQ", bv_hlsq_counters, hlsq_countables),
 };
-const struct fd_perfcntr_group a8xx_perfcntr_groups[] = {
-      GROUP("CP", cp_counters, cp_countables),
-      GROUP("RBBM", rbbm_counters, rbbm_countables),
-      GROUP("PC", pc_counters, pc_countables),
-      GROUP("VFD", vfd_counters, vfd_countables),
-      GROUP("HLSQ", hlsq_counters, hlsq_countables),
-      GROUP("VPC", vpc_counters, vpc_countables),
-      GROUP("TSE", tse_counters, tse_countables),
-      GROUP("RAS", ras_counters, ras_countables),
-      GROUP("UCHE", uche_counters, uche_countables),
-      GROUP("TP", tp_counters, tp_countables),
-      GROUP("SP", sp_counters, sp_countables),
-      GROUP("RB", rb_counters, rb_countables),
-      GROUP("VSC", vsc_counters, vsc_countables),
-      GROUP("CCU", ccu_counters, ccu_countables),
-      GROUP("LRZ", lrz_counters, lrz_countables),
-      GROUP("CMP", cmp_counters, cmp_countables),
-      GROUP("UFC", ufc_counters, ufc_countables),
-      GROUP("BV_CP", bv_cp_counters, cp_countables),
-      GROUP("BV_PC", bv_pc_counters, pc_countables),
-      GROUP("BV_VFD", bv_vfd_counters, vfd_countables),
-      GROUP("BV_VPC", bv_vpc_counters, vpc_countables),
-      GROUP("BV_TP", bv_tp_counters, tp_countables),
-      GROUP("BV_SP", bv_sp_counters, sp_countables),
-      GROUP("BV_UFC", bv_ufc_counters, ufc_countables),
-      GROUP("BV_TSE", bv_tse_counters, tse_countables),
-      GROUP("BV_RAS", bv_ras_counters, ras_countables),
-      GROUP("BV_LRZ", bv_lrz_counters, lrz_countables),
-      GROUP("BV_HLSQ", bv_hlsq_counters, hlsq_countables),
-};
 
-const unsigned a8xx_num_perfcntr_groups = ARRAY_SIZE(a8xx_perfcntr_groups);
 
 const unsigned a7xx_num_perfcntr_groups = ARRAY_SIZE(a7xx_perfcntr_groups);
 
