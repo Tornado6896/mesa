@@ -22,9 +22,6 @@ extern const unsigned a6xx_num_perfcntr_groups;
 extern const struct fd_perfcntr_group a7xx_perfcntr_groups[];
 extern const unsigned a7xx_num_perfcntr_groups;
 
-// extern const struct fd_perfcntr_group a8xx_perfcntr_groups[];
-// extern const unsigned a8xx_num_perfcntr_groups;
-
 const struct fd_perfcntr_group *
 fd_perfcntrs(const struct fd_dev_id *id, unsigned *count)
 {
@@ -42,8 +39,8 @@ fd_perfcntrs(const struct fd_dev_id *id, unsigned *count)
       *count = a7xx_num_perfcntr_groups;
       return a7xx_perfcntr_groups;
     case 8:
-     *count = a7xx_num_perfcntr_groups;
-     return a7xx_perfcntr_groups;
+     *count = a6xx_num_perfcntr_groups;
+     return a6xx_perfcntr_groups;
    default:
       *count = 0;
       return NULL;
@@ -61,29 +58,15 @@ fd_derived_counters(const struct fd_dev_id *id, unsigned *count)
       *count = a7xx_num_derived_counters;
       return a7xx_derived_counters;
       case 8:
-      *count = a7xx_num_derived_counters;
-      return a7xx_derived_counters;
+      *count = a6xx_num_derived_counters;
+      return a6xx_derived_counters;
    default:
       *count = 0;
       return NULL;
    }
 }
 
-// extern const struct fd_derived_counter *a8xx_derived_counters[];
-// extern const unsigned a8xx_num_derived_counters;
 
-//  const struct fd_derived_counter **
-//  fd_derived_counters(const struct fd_dev_id *id, unsigned *count)
-// {
-//    switch (fd_dev_gen(id)) {
-//   case 8:
-//       *count = a8xx_num_derived_counters;
-//        return a8xx_derived_counters;
-//    default:
-//       *count = 0;
-//        return NULL;
-//    }
-//  }
 
 extern void a7xx_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_derived_counter_collection *collection);
 
@@ -95,23 +78,10 @@ fd_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_der
       a7xx_generate_derived_counter_collection(id, collection);
       break;
    case 8:
-      a7xx_generate_derived_counter_collection(id, collection);
+      a6xx_generate_derived_counter_collection(id, collection);
       break;
    default:
       break;
    }
 }
 
-//  extern void a8xx_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_derived_counter_collection *collection);
-
-//  void
-// fd_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_derived_counter_collection *collection)
-//  {
-//     switch (fd_dev_gen(id)) {
-//      case 8:
-//        a7xx_generate_derived_counter_collection(id, collection);
-//      break;
-//     default:
-//       break;
-//    }
-//  }
