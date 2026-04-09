@@ -1379,7 +1379,7 @@ use_sysmem_rendering(struct tu_cmd_buffer *cmd,
       return true;
    }
 
-   if (TU_DEBUG(GMEM))
+   if (TU_DEBUG(GMEM)) {
       cmd->state.rp.gmem_disable_reason="TU_DEBUG(GMEM)";
       return false;
     }
@@ -6435,7 +6435,7 @@ tu_emit_subpass_begin_gmem(struct tu_cmd_buffer *cmd, struct tu_resolve_group *r
     */
   bool cond_load_allowed = vsc->binning_possible &&
                             cmd->state.pass->has_cond_load_store &&
-                            !cmd->state.rp.draw_cs_writes_to_cond_pred;s
+                            !cmd->state.rp.draw_cs_writes_to_cond_pred;
 
    if (cmd->state.pass->has_fdm)
       tu_cs_set_writeable(cs, true);
