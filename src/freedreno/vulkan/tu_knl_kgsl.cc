@@ -1869,6 +1869,8 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
 
    /* preemption is always supported on kgsl */
    device->has_preemption = true;
+ /* KGSL doesn't allow writing the perf counter selector as the expectation is to use the uAPI provided for this. */
+   device->is_perf_cntr_selectable = false;
 
    device->ubwc_config.highest_bank_bit = highest_bank_bit;
 
