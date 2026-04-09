@@ -330,6 +330,16 @@ tu_autotune_on_submit(struct tu_device *dev,
 
    process_results(at, gpu_fence);
 
+tu_autotune::get_supported_mod_flags(tu_device *device) const
+{
+   uint32_t supported_mod_flags = (uint32_t) mod_flag::BIG_GMEM | (uint32_t) mod_flag::TUNE_SMALL;
+   if (device->physical_device->info->props.max_draw_states > TU_DRAW_STATE_AT_WRITE_RP_HASH &&
+       device->physical_device->is_perf_cntr_selectable) {
+      supported_mod_flags |= (uint32_t) mod_flag::PREEMPT_OPTIMIZE;
+   }
+   return supported_mod_flags;
+
+   
    /* Create history entries here to minimize work and locking being
     * done on renderpass end.
     */
