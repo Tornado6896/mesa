@@ -9,7 +9,6 @@
 
 #include "freedreno_perfcntr.h"
 
-#define REG7(_x) REG_A7XX_##_x
 #define REG6(_x) REG_A6XX_##_x
 #define REG8(_x) REG_A8XX_##_x
 
