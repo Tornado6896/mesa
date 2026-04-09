@@ -1158,8 +1158,6 @@ process_fp_query(struct analysis_state *state, struct analysis_query *aq, uint32
       break;
    }
 
-   }
-
    case nir_op_fround_even: {
       r = src_res[0];
 
