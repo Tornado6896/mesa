@@ -96,6 +96,4 @@
  */
 #define MESA_VK_MAX_MULTIVIEW_VIEW_COUNT 32
 
-#define MESA_VK_MAX_CUSTOM_BORDER_COLOR ~0
-
 #endif /* VK_LIMITS_H */

@@ -90,11 +90,6 @@ struct vk_sampler_state {
     */
    VkClearColorValue border_color_value;
 
-   /**
-    * VkSamplerCustomBorderColorIndexCreateInfo::index.
-    */
-   uint32_t border_color_index;
-
    /** VkSamplerBorderColorComponentMappingCreateInfoEXT::components */
    VkComponentMapping border_color_component_mapping;
 

@@ -4,7 +4,7 @@ DisableFormat: false
 
 AlwaysBreakAfterReturnType: TopLevel
 BinPackParameters: false
-ColumnLimit: 120
+ColumnLimit: 78
 Cpp11BracedListStyle: false
 
 IncludeBlocks: Regroup

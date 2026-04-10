@@ -46,9 +46,6 @@ enum tu_draw_state_group_id
    /* dynamic state related draw states */
    TU_DRAW_STATE_DYNAMIC,
    TU_DRAW_STATE_COUNT = TU_DRAW_STATE_DYNAMIC + TU_DYNAMIC_STATE_COUNT,
-
-   /* autotune preemption delay tracking draw state */
-   TU_DRAW_STATE_AT_WRITE_RP_HASH = TU_DRAW_STATE_COUNT + 1,
 };
 
 struct tu_descriptor_state
@@ -532,12 +529,11 @@ struct tu_cmd_state
    /* Decides which GMEM layout to use from the tu_pass, based on whether the CCU
     * might get used by tu_store_gmem_attachment().
     */
-   tu_gmem_layout gmem_layout;
-   uint32_t gmem_layout_divisor;
+   enum tu_gmem_layout gmem_layout;
 
    const struct tu_render_pass *pass;
    const struct tu_subpass *subpass;
-   struct tu_framebuffer *framebuffer;
+   const struct tu_framebuffer *framebuffer;
    const struct tu_tiling_config *tiling;
    VkRect2D render_areas[MAX_VIEWS];
    bool per_layer_render_area;
@@ -553,12 +549,11 @@ struct tu_cmd_state
    struct {
       const struct tu_render_pass *pass;
       const struct tu_subpass *subpass;
-      struct tu_framebuffer *framebuffer;
+      const struct tu_framebuffer *framebuffer;
       VkRect2D render_areas[MAX_VIEWS];
       bool per_layer_render_area;
       bool fdm_subsampled;
       enum tu_gmem_layout gmem_layout;
-      uint32_t gmem_layout_divisor;
 
       const struct tu_image_view **attachments;
       VkClearValue *clear_values;
@@ -658,7 +653,8 @@ struct tu_cmd_buffer
    struct u_trace_iterator trace_renderpass_start;
    struct u_trace trace, rp_trace;
 
-   tu_autotune::cmd_buf_ctx autotune_ctx;
+   struct list_head renderpass_autotune_results;
+   struct tu_autotune_results_buffer* autotune_buffer;
 
    void *patchpoints_ctx;
    struct util_dynarray fdm_bin_patchpoints;
@@ -864,9 +860,6 @@ void tu_disable_draw_states(struct tu_cmd_buffer *cmd, struct tu_cs *cs);
 
 void tu6_apply_depth_bounds_workaround(struct tu_device *device,
                                        uint32_t *rb_depth_cntl);
-
-void
-tu_cs_emit_draw_state(struct tu_cs *cs, uint32_t id, struct tu_draw_state state);
 
 bool tu_enable_fdm_offset(struct tu_cmd_buffer *cmd);
 

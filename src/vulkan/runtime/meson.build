@@ -262,7 +262,6 @@ vulkan_runtime_files = files(
   'vk_meta_draw_rects.c',
   'vk_nir.c',
   'vk_nir_convert_ycbcr.c',
-  'vk_nir_lower_descriptor_heaps.c',
   'vk_pipeline.c',
   'vk_pipeline_cache.c',
   'vk_shader.c',

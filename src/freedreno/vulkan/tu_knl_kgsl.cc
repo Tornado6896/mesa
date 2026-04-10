@@ -1870,9 +1870,6 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
    /* preemption is always supported on kgsl */
    device->has_preemption = true;
 
-   /* KGSL doesn't allow writing the perf counter selector as the expectation is to use the uAPI provided for this. */
-   device->is_perf_cntr_selectable = false;
-
    device->ubwc_config.highest_bank_bit = highest_bank_bit;
 
    /* The other config values can be partially inferred from the UBWC version,
@@ -1893,8 +1890,8 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
       device->ubwc_config.macrotile_mode = FDL_MACROTILE_4_CHANNEL;
       break;
    case KGSL_UBWC_4_0:
-   case KGSL_UBWC_5_0:
-   case KGSL_UBWC_6_0:
+   case 5:
+   case 6:
       device->ubwc_config.bank_swizzle_levels = 0x6;
       device->ubwc_config.macrotile_mode = FDL_MACROTILE_8_CHANNEL;
       break;
