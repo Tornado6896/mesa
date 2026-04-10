@@ -226,6 +226,10 @@ struct wsi_display {
    pthread_t                    hotplug_thread;
 
    struct list_head             connectors; /* list of all discovered connectors */
+   /* Flag that we've called wsi_get_connectors() with the current fd.
+    */
+   bool                         get_connectors_current;
+   mtx_t                        connectors_mutex;
 
    /* A unique monotonically increasing value to associate with an individual
     * colorimetry outcome on the output. This is used to avoid propagating
@@ -893,13 +897,18 @@ wsi_get_connectors(VkPhysicalDevice physicalDevice)
    struct wsi_display *wsi =
       (struct wsi_display *) wsi_device->wsi[VK_ICD_WSI_PLATFORM_DISPLAY];
 
-   if (wsi->fd < 0)
+   mtx_lock(&wsi->connectors_mutex);
+   if (wsi->fd < 0 || wsi->get_connectors_current) {
+      mtx_unlock(&wsi->connectors_mutex);
       return VK_SUCCESS;
+   }
 
    drmModeResPtr mode_res = drmModeGetResources(wsi->fd);
 
-   if (!mode_res)
+   if (!mode_res) {
+      mtx_unlock(&wsi->connectors_mutex);
       return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
 
    /* Get current information */
    for (int c = 0; c < mode_res->count_connectors; c++) {
@@ -908,9 +917,13 @@ wsi_get_connectors(VkPhysicalDevice physicalDevice)
                mode_res->connectors[c]);
       if (!connector) {
          drmModeFreeResources(mode_res);
+         mtx_unlock(&wsi->connectors_mutex);
          return VK_ERROR_OUT_OF_HOST_MEMORY;
       }
    }
+
+   wsi->get_connectors_current = true;
+   mtx_unlock(&wsi->connectors_mutex);
 
    drmModeFreeResources(mode_res);
    return VK_SUCCESS;
@@ -2847,7 +2860,7 @@ _wsi_display_convert_hdr_metadata(VkHdrMetadataEXT *pMetadata, uint8_t hdmi_eotf
 }
 
 static int
-drm_atomic_commit(wsi_display_connector *connector, struct wsi_display_image *image)
+drm_atomic_commit(wsi_display_connector *connector, struct wsi_display_image *image, bool test_only)
 {
    const drmModeModeInfo *mode = &connector->current_drm_mode;
    int fd = connector->wsi->fd;
@@ -2934,6 +2947,11 @@ drm_atomic_commit(wsi_display_connector *connector, struct wsi_display_image *im
    drmModeAtomicAddProperty(req, plane_id, prop[CRTC_W], mode->hdisplay);
    drmModeAtomicAddProperty(req, plane_id, prop[CRTC_H], mode->vdisplay);
 
+   if (test_only) {
+      flags |= DRM_MODE_ATOMIC_TEST_ONLY;
+      flags &= ~DRM_MODE_PAGE_FLIP_EVENT;
+   }
+
    ret = drmModeAtomicCommit(fd, req, flags, image);
    if (ret)
       goto out;
@@ -2964,7 +2982,7 @@ _wsi_display_cleanup_state(struct wsi_display_swapchain *chain)
    if (chain->color_outcome_serial) {
       chain->color_outcome_serial = 0;
       chain->base.image_info.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-      drm_atomic_commit(connector, &chain->images[0]);
+      drm_atomic_commit(connector, &chain->images[0], false);
    }
 }
 
@@ -3109,7 +3127,7 @@ _wsi_display_queue_next(struct wsi_swapchain *drv_chain)
 
       image->state = WSI_IMAGE_QUEUED;
 
-      int ret = drm_atomic_commit(connector, image);
+      int ret = drm_atomic_commit(connector, image, false);
       if (ret == 0) {
          image->state = WSI_IMAGE_FLIPPING;
          connector->active = true;
@@ -3397,6 +3415,28 @@ wsi_display_surface_create_swapchain(
                                       create_info,
                                       drm_format,
                                       &chain->images[image]);
+
+      /* Check that we could actually possibly atomic commit to this plane. This
+       * catches cases where the swapchain exceeds some limits of the hardware
+       * that we couldn't tell from the probed properties.
+       *
+       * There is text explicitly allowing this error code for "exclusive
+       * full-screen mode" (which is not actually what DRM KHR_display is by
+       * spec, though we are giving exclusive full-screen access!), but this is
+       * what the CTS expects to find for unsupported swapchains.
+       */
+      if (result == VK_SUCCESS) {
+         ret = drm_atomic_commit(display_mode->connector, &chain->images[image], true);
+         if (ret != 0) {
+            wsi_display_debug("Atomic commit check for %dx%d %s, failed: %s\n",
+               create_info->imageExtent.width,
+               create_info->imageExtent.height,
+               util_format_short_name(vk_format_to_pipe_format(create_info->imageFormat)),
+               strerror(-errno));
+            result = VK_ERROR_INITIALIZATION_FAILED;
+         }
+      }
+
       if (result != VK_SUCCESS) {
          while (image > 0) {
             --image;
@@ -3509,6 +3549,9 @@ udev_event_listener_thread(void *data)
              * and wsi_display_wait_for_event.
              */
             mtx_lock(&wsi->wait_mutex);
+            mtx_lock(&wsi->connectors_mutex);
+            wsi->get_connectors_current = false;
+            mtx_unlock(&wsi->connectors_mutex);
             u_cnd_monotonic_broadcast(&wsi->hotplug_cond);
             list_for_each_entry(struct wsi_display_fence, fence,
                                 &wsi_device->hotplug_fences, link) {
@@ -3591,6 +3634,12 @@ wsi_display_init_wsi(struct wsi_device *wsi_device,
       goto fail_mutex;
    }
 
+   ret = mtx_init(&wsi->connectors_mutex, mtx_plain);
+   if (ret != thrd_success) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      goto fail_mutex2;
+   }
+
    ret = u_cnd_monotonic_init(&wsi->wait_cond);
    if (ret != thrd_success) {
       result = VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -3618,6 +3667,8 @@ wsi_display_init_wsi(struct wsi_device *wsi_device,
 fail_hotplug_cond:
    u_cnd_monotonic_destroy(&wsi->wait_cond);
 fail_cond:
+   mtx_destroy(&wsi->connectors_mutex);
+fail_mutex2:
    mtx_destroy(&wsi->wait_mutex);
 fail_mutex:
    vk_free(alloc, wsi);
@@ -3643,6 +3694,7 @@ wsi_display_finish_wsi(struct wsi_device *wsi_device,
          pthread_join(wsi->hotplug_thread, NULL);
       }
 
+      mtx_destroy(&wsi->connectors_mutex);
       mtx_destroy(&wsi->wait_mutex);
       u_cnd_monotonic_destroy(&wsi->wait_cond);
       u_cnd_monotonic_destroy(&wsi->hotplug_cond);
@@ -3670,6 +3722,7 @@ wsi_ReleaseDisplayEXT(VkPhysicalDevice physicalDevice,
       if (wsi->fd != wsi->device_fd)
          close(wsi->fd);
       wsi->fd = wsi->device_fd;
+      wsi->get_connectors_current = false;
    }
 
    struct wsi_display_connector *connector =
