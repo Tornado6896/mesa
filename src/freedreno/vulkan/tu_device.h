@@ -29,6 +29,7 @@
 #include "common/fd6_gmem_cache.h"
 #include "util/vma.h"
 #include "util/u_vector.h"
+#include "util/rwlock.h"
 
 /* queue types */
 #define TU_QUEUE_GENERAL 0
@@ -141,7 +142,7 @@ struct tu_physical_device
 
    bool has_preemption;
 
-/* Whether performance counter selector registers can be written by userspace CSes. */
+   /* Whether performance counter selector registers can be written by userspace CSes. */
    bool is_perf_cntr_selectable;
 
    struct {
@@ -238,6 +239,9 @@ struct tu_instance
     * instead.
     */
    bool emulate_alpha_to_coverage;
+
+   /* Configuration option to use a specific autotune algorithm by default. */
+   const char *autotune_algo;
 };
 VK_DEFINE_HANDLE_CASTS(tu_instance, vk.base, VkInstance,
                        VK_OBJECT_TYPE_INSTANCE)
@@ -270,7 +274,12 @@ struct tu6_global
 
    volatile uint32_t vtx_stats_query_not_running;
 
-   /* To know when renderpass stats for autotune are valid */
+   /* A fence with a monotonically increasing value that is
+    * incremented by the GPU on each submission that includes
+    * a tu_autotune::submission_entry CS. This is used to track
+    * which submissions have been processed by the GPU before
+    * processing the autotune packet on the CPU.
+    */
    volatile uint32_t autotune_fence;
 
    /* For recycling command buffers for dynamic suspend/resume comamnds */
@@ -291,6 +300,27 @@ struct tu6_global
 
    volatile uint32_t userspace_fence;
    uint32_t _pad5;
+
+   /* Autotune preemption delay tracking */
+   uint64_t cur_rp_hash;
+
+   uint64_t base_preemption_latency;
+   uint64_t new_preemption_latency;
+   volatile uint64_t preemption_latency;
+
+   uint64_t base_always_count;
+   uint64_t new_always_count;
+   uint64_t base_aon;
+   uint64_t new_aon;
+
+   /* These four fields must be contiguous so that snapshot_preempt_data can copy them all in a single CP_MEMCPY. */
+   volatile uint64_t max_preemption_latency;
+   volatile uint64_t max_preemption_latency_rp_hash;
+   volatile uint64_t max_always_count_delta;
+   volatile uint64_t max_aon_delta;
+
+   uint64_t preemption_latency_cmp_scratch;
+   uint64_t zero_64b;
 
    struct bcolor_entry bcolor[];
 };
@@ -359,12 +389,6 @@ struct tu_device
     */
    struct tu_suballocator pipeline_suballoc;
    mtx_t pipeline_mutex;
-
-   /* Device-global BO suballocator for reducing BO management for small
-    * gmem/sysmem autotune result buffers.  Synchronized by autotune_mutex.
-    */
-   struct tu_suballocator autotune_suballoc;
-   mtx_t autotune_mutex;
 
    /* KGSL requires a small chunk of GPU mem to retrieve raw GPU time on
     * each submission.
@@ -451,6 +475,8 @@ struct tu_device
 
    struct tu_cs_entry bin_preamble_entry, bin_preamble_bv_entry;
 
+   struct tu_cs_entry switch_away_amble_entry, switch_back_amble_entry;
+
    struct tu_bo *vis_stream_bo;
    mtx_t vis_stream_mtx;
 
@@ -463,7 +489,7 @@ struct tu_device
    pthread_cond_t timeline_cond;
    pthread_mutex_t submit_mutex;
 
-   struct tu_autotune autotune;
+   struct tu_autotune *autotune;
 
    struct breadcrumbs_context *breadcrumbs_ctx;
 
@@ -567,12 +593,11 @@ struct tu_vsc_config {
    /* Whether binning could be used for gmem rendering using this framebuffer. */
    bool binning_possible;
 
-      /* Whether binning is useful for GMEM rendering performance using this framebuffer. This is independent of whether
+   /* Whether binning is useful for GMEM rendering performance using this framebuffer. This is independent of whether
     * binning is possible, and is determined by the tile count. Not binning when it's useful would be a performance
     * hazard, and GMEM rendering should be avoided in the case where it's useful to bin but not possible to do so.
     */
    bool binning_useful;
-
 
    /* pipe register values */
    uint32_t pipe_config[MAX_VSC_PIPES];
@@ -601,7 +626,8 @@ struct tu_framebuffer
 
    uint32_t max_tile_w_constraint;
    uint32_t max_tile_h_constraint;
-   struct tu_tiling_config tiling[TU_GMEM_LAYOUT_COUNT];
+   uint32_t initd_divisor; /* The tile divisors up to this have been initialized, for lazy init. */
+   struct tu_tiling_config tiling[TU_GMEM_LAYOUT_COUNT * TU_GMEM_LAYOUT_DIVISOR_MAX];
 
    uint32_t attachment_count;
    const struct tu_image_view *attachments[0];

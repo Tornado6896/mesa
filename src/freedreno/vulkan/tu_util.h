@@ -75,7 +75,6 @@ enum tu_debug_flags : uint64_t
    TU_DEBUG_NOFDM                    = BITFIELD64_BIT(34),
    TU_DEBUG_NO_CONCURRENT_BINNING    = BITFIELD64_BIT(35),
    TU_DEBUG_FORCE_CONCURRENT_BINNING = BITFIELD64_BIT(36),
-   TU_DEBUG_DECK_EMU                 = BITFIELD64_BIT(37),
 };
 
 struct tu_env {
@@ -137,9 +136,16 @@ __tu_finishme(const char *file, int line, const char *format, ...)
    } while (0)
 
 void
-tu_framebuffer_tiling_config(struct tu_framebuffer *fb,
-                             const struct tu_device *device,
-                             const struct tu_render_pass *pass);
+tu_framebuffer_init_tiling_config(struct tu_framebuffer *fb,
+                                  const struct tu_device *device,
+                                  const struct tu_render_pass *pass);
+
+const struct tu_tiling_config *
+tu_framebuffer_get_tiling_config(struct tu_framebuffer *fb,
+                                 const struct tu_device *device,
+                                 const struct tu_render_pass *pass,
+                                 int gmem_layout,
+                                 uint32_t divisor);
 
 #define TU_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
 

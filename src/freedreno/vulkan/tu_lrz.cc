@@ -702,46 +702,61 @@ tu_lrz_before_sysmem_br(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 
       tu_lrz_emit_view_info(cmd, cs);
 
+      /* If CB is dynamically enabled, then flip the buffer BR is using.
+       * This pairs with the LRZ flip in tu_lrz_sysmem_begin.
+       */
       if (!lrz->reuse_previous_state) {
          tu_emit_event_write<CHIP>(cmd, cs, FD_LRZ_FLIP);
 
+         /* This shouldn't be necessary, because we should be able to clear
+          * LRZ on BV and then BR should use the clear value written by BV,
+          * but there seems to be a HW errata where the value from the
+          * register instead of the clear value is sometimes used when LRZ
+          * writes are disabled. This doesn't seem to be a problem in GMEM
+          * mode, however.
+          *
+          * This is seen with
+          * dEQP-VK.pipeline.monolithic.color_write_enable.alpha_channel.static.*
+          */
          if (lrz->fast_clear)
             tu_cs_emit_regs(cs, GRAS_LRZ_DEPTH_CLEAR(CHIP, lrz->depth_clear_value.depthStencil.depth));
       } else {
-         // Для A7XX и A8XX используем соответствующие структуры
+         /* To workaround the same HW errata as above, but where we don't know
+          * the clear value, copy the clear value from memory to the register.
+          * This is tricky because there are two and we have to select the
+          * right one using CP_COND_EXEC.
+          */
+         const unsigned if_dwords = 4, else_dwords = if_dwords;
          uint64_t lrz_fc_iova =
             lrz->image_view->image->iova + lrz->image_view->image->lrz_layout.lrz_fc_offset;
-         uint64_t br_cur_buffer_iova;
-         size_t offset_buffer1, offset_buffer0, offset_br_cur;
+         uint64_t br_cur_buffer_iova =
+            lrz_fc_iova + offsetof(fd_lrzfc_layout<A7XX>, br_cur_buffer);
 
-         if (CHIP >= A8XX) {
-            br_cur_buffer_iova = lrz_fc_iova + offsetof(fd_lrzfc_layout<A8XX>, br_cur_buffer);
-            offset_buffer1 = offsetof(fd_lrzfc_layout<A8XX>, buffer[1].depth_clear_val);
-            offset_buffer0 = offsetof(fd_lrzfc_layout<A8XX>, buffer[0].depth_clear_val);
-         } else {
-            br_cur_buffer_iova = lrz_fc_iova + offsetof(fd_lrzfc_layout<A7XX>, br_cur_buffer);
-            offset_buffer1 = offsetof(fd_lrzfc_layout<A7XX>, buffer[1].depth_clear_val);
-            offset_buffer0 = offsetof(fd_lrzfc_layout<A7XX>, buffer[0].depth_clear_val);
-         }
-
-         // Make sure the value is written to memory.
+         /* Make sure the value is written to memory. */
          tu_emit_event_write<CHIP>(cmd, cs, FD_CACHE_CLEAN);
          tu_cs_emit_wfi(cs);
          tu_cs_emit_pkt7(cs, CP_WAIT_FOR_ME, 0);
 
-         tu_cs_reserve(cs, 7 + 4 + 1 + 4);
+         /* if (br_cur_buffer != 0) { */
+         tu_cs_reserve(cs, 7 + if_dwords + 1 + else_dwords);
          tu_cs_emit_pkt7(cs, CP_COND_EXEC, 6);
          tu_cs_emit_qw(cs, br_cur_buffer_iova);
          tu_cs_emit_qw(cs, br_cur_buffer_iova);
          tu_cs_emit(cs, 2); /* REF */
-         tu_cs_emit(cs, 4 + 1);
+         tu_cs_emit(cs, if_dwords + 1);
+         /*    GRAS_LRZ_DEPTH_CLEAR = lrz_fc->buffer[1].depth_clear_val */
          tu_cs_emit_pkt7(cs, CP_MEM_TO_REG, 3);
          tu_cs_emit(cs, CP_MEM_TO_REG_0_REG(GRAS_LRZ_DEPTH_CLEAR(CHIP).reg));
-         tu_cs_emit_qw(cs, lrz_fc_iova + offset_buffer1);
-         tu_cs_emit_pkt7(cs, CP_NOP, 4);
+         tu_cs_emit_qw(cs, lrz_fc_iova + offsetof(fd_lrzfc_layout<A7XX>,
+                                                  buffer[1].depth_clear_val));
+         /* } else { */
+         tu_cs_emit_pkt7(cs, CP_NOP, else_dwords);
+         /*    GRAS_LRZ_DEPTH_CLEAR = lrz_fc->buffer[0].depth_clear_val */
          tu_cs_emit_pkt7(cs, CP_MEM_TO_REG, 3);
          tu_cs_emit(cs, CP_MEM_TO_REG_0_REG(GRAS_LRZ_DEPTH_CLEAR(CHIP).reg));
-         tu_cs_emit_qw(cs, lrz_fc_iova + offset_buffer0);
+         tu_cs_emit_qw(cs, lrz_fc_iova + offsetof(fd_lrzfc_layout<A7XX>,
+                                                  buffer[0].depth_clear_val));
+         /* } */
       }
    }
 }
