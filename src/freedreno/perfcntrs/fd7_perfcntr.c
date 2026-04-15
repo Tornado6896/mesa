@@ -12,6 +12,7 @@
 #define REG6(_x) REG_A6XX_##_x
 #define REG7(_x) REG_A7XX_##_x
 
+
 #define FD7_COUNTER(_sel, _offset) COUNTER_BASE(_sel, _offset+0, _offset+1)
 #define FD7_COUNTABLE(_sel) COUNTABLE_BASE(#_sel, A7XX_##_sel, UINT64, AVERAGE)
 
@@ -1261,6 +1262,7 @@ const struct fd_perfcntr_group a7xx_perfcntr_groups[] = {
       GROUP("BV_LRZ", bv_lrz_counters, lrz_countables),
       GROUP("BV_HLSQ", bv_hlsq_counters, hlsq_countables),
 };
+
 
 const unsigned a7xx_num_perfcntr_groups = ARRAY_SIZE(a7xx_perfcntr_groups);
 

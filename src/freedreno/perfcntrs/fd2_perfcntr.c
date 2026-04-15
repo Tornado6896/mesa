@@ -7,9 +7,11 @@
  *    Rob Clark <robclark@freedesktop.org>
  */
 
+#include "util/half_float.h"
 #include "util/u_math.h"
-
-#include "common/fd2_hw.h"
+#include "adreno_common.xml.h"
+#include "adreno_pm4.xml.h"
+#include "a2xx.xml.h"
 
 #define REG(_x) REG_A2XX_ ## _x
 #include "freedreno_perfcntr.h"

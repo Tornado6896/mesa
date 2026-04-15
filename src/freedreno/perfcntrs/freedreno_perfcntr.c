@@ -60,6 +60,8 @@ fd_derived_counters(const struct fd_dev_id *id, unsigned *count)
    }
 }
 
+
+
 extern void a7xx_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_derived_counter_collection *collection);
 
 void
@@ -73,3 +75,4 @@ fd_generate_derived_counter_collection(const struct fd_dev_id *id, struct fd_der
       break;
    }
 }
+
