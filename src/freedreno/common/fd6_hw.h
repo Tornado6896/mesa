@@ -16,6 +16,7 @@
 #include "a7xx_perfcntrs.xml.h"
 #include "a6xx_descriptors.xml.h"
 #include "a8xx_descriptors.xml.h"
+#include "a8xx_perfcntrs.xml.h"
 #include "a6xx.xml.h"
 
 #endif /* FD6_HW_H */
